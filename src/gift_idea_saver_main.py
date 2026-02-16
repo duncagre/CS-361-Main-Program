@@ -1,7 +1,8 @@
 import json
 import os
 
-DATA_FILE = "gift_idea_saver_data.json"
+BASE_DIR = os.path.dirname(__file__)
+DATA_FILE = os.path.abspath(os.path.join(BASE_DIR, "..", "data", "gift_idea_saver_data.json"))
 
 #   -------------------------
 #   File load/save
@@ -29,7 +30,7 @@ def load_data():
                 data[name] = []
 
         return data
-    except:
+    except (OSError, json.JSONDecodeError):
         return {}
     
 
@@ -37,6 +38,8 @@ def save_data(data):
     """
     Saves the current data to a JSON file.
     """
+    os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
+
     with open(DATA_FILE, "w", encoding="utf-8") as file:
         json.dump(data, file, indent=2)
 
@@ -194,46 +197,171 @@ def main_menu(data):
 
 
 #   -------------------------
-#   Recipients screen   #   TO DO
+#   Recipients screen
 #   -------------------------
 
 def recipients_screen(data):
     """
     Displays the list of recipients and available recipient-related actions.
     """
+    recipients = list_recipients(data)
+
+    print("\nRecipients:\n")
+
+    if len(recipients) == 0:
+        print("(No recipients yet.)\n")
+        print("[1] Add a new recipient")
+        print("[0] Return to main menu\n")
+
+        choice = get_input("Enter your choice: > ")
+        if choice == "1":
+            add_recipient_screen(data)
+        return
+
+    for i in range(len(recipients)):
+        print(f"[{i + 1}] {recipients[i]}")
+    print()
+
+    add_option = len(recipients) + 1
+    print(f"[{add_option}] Add a new recipient")
+    print("[0] Return to main menu\n")
+
+    choice = get_input("Enter your choice: > ")
+
+    if not is_number(choice):
+        print("Invalid input.")
+        return
+
+    choice = int(choice)
+
+    if choice == 0:
+        return
+    if choice == add_option:
+        add_recipient_screen(data)
+        return
+    if 1 <= choice <= len(recipients):
+        selected = recipients[choice - 1]
+        gift_list_screen(data, selected)
 
 
 #   -------------------------
-#   Add Recipients screen   #   TO DO
+#   Add Recipients screen
 #   -------------------------
 
 def add_recipient_screen(data):
     """
     Handles user interaction for adding a new recipient.
     """
+    print("\nAdd a New Recipient\n")
+    name = get_input("Enter the recipient's name (or type 'cancel'): > ")
+
+    if name.lower() == "cancel":
+        print("\nNo recipient was added.\n")
+        return
+
+    name = clean_text(name)
+    if name == "":
+        print("\nRecipient name cannot be empty.\n")
+        return
+
+    print("\n[1] Confirm")
+    print("[2] Cancel\n")
+
+    choice = get_input("Enter your choice: > ")
+
+    if choice == "2":
+        print("\nNo recipient was added.\n")
+        return
+
+    was_added = add_recipient_to_data(data, name)
+
+    if was_added:
+        print(f'\nRecipient "{name}" added successfully.\n')
+    else:
+        print(f'\nRecipient "{name}" already exists.\n')
+
+    print("[1] Add a gift idea for this recipient")
+    print("[0] Return to main menu\n")
+
+    next_choice = get_input("Enter your choice: > ")
+    if next_choice == "1":
+        add_gift_screen(data, name)
+
 
 #   -------------------------
-#   Gifts screen   #   TO DO
+#   Gifts screen
 #   -------------------------
 
 def gift_list_screen(data, recipient_name):
     """
     Displays all gift ideas for the selected recipient.
     """
+    gifts = get_gifts_for_recipient(data, recipient_name)
+
+    print(f"\nGift Ideas for {recipient_name}:\n")
+
+    if len(gifts) == 0:
+        print("(No gift ideas yet.)\n")
+    else:
+        for gift in gifts:
+            print(f"- {gift['idea']} ({gift['occasion']})")
+        print()
+
+    print("[1] Add a gift idea")
+    print("[2] Return to recipient list")
+    print("[0] Return to main menu\n")
+
+    choice = get_input("Enter your choice: > ")
+
+    if choice == "1":
+        add_gift_screen(data, recipient_name)
+    elif choice == "2":
+        recipients_screen(data)
+    # choice 0 just returns
 
 
 #   -------------------------
-#   Add Gifts screen   #   TO DO
+#   Add Gifts screen
 #   -------------------------
 
 def add_gift_screen(data, recipient_name):
     """
     Handles user interaction for adding a gift idea and assigning an occasion.
     """
+    print(f"\nAdd a Gift Idea for {recipient_name}\n")
+    gift_text = get_input("Enter the gift idea (or type 'cancel'): > ")
+
+    if gift_text.lower() == "cancel":
+        print("\nNo gift idea was added.\n")
+        return
+
+    gift_text = clean_text(gift_text)
+    if gift_text == "":
+        print("\nGift idea cannot be empty.\n")
+        return
+
+    occasion = choose_occasion()
+    if occasion is None:
+        print("\nNo gift idea was added.\n")
+        return
+
+    print("\n[1] Confirm and save")
+    print("[2] Cancel\n")
+
+    choice = get_input("Enter your choice: > ")
+
+    if choice == "2":
+        print("\nNo gift idea was added.\n")
+        return
+
+    add_gift_to_recipient(data, recipient_name, gift_text, occasion)
+
+    print(f'\nGift idea "{gift_text}" saved for {recipient_name}.')
+    print(f"Occasion: {occasion}\n")
 
 
 #   -------------------------
-#   Run program   #   TO DO
+#   Run program
 #   -------------------------
 
 def run_program():
@@ -245,7 +373,6 @@ def run_program():
     running = True
     while running:
         running = main_menu(data)
-
 
 
 if __name__ == "__main__":
